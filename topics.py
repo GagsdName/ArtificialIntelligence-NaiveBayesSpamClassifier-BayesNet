@@ -10,7 +10,13 @@ def calculate_Bayesian(directory):
 		for root,dirs,files in os.walk(path):
 			for name in files:
 				print d,name
+				calculate_from_file(path+"/"+name)
 
+
+def calculate_from_file(filepath):
+	f = open(filepath, 'r')
+	for line in f:
+		print line	
 		
 print "gagan"
 input = sys.argv[1:5]
