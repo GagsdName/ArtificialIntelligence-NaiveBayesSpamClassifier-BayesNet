@@ -1,24 +1,31 @@
-import sys, glob, os
+import sys, glob, os, re, pickle
 from os import listdir
 from os.path import isfile, join, walk
+
+freq_dict={}
 
 def calculate_Bayesian(directory):
 	print "Bayes"
 	dir_list =  listdir(directory)
 	for d in dir_list:
+		freq_dict.update({d:{}})
 		path = directory+"/"+d
 		for root,dirs,files in os.walk(path):
 			for name in files:
 				print d,name
-				calculate_from_file(path+"/"+name)
+				calculate_from_file(d,path+"/"+name)
 
 
-def calculate_from_file(filepath):
+def calculate_from_file(d, filepath):
 	f = open(filepath, 'r')
+	d = str(d)
 	for line in f:
-		print line	
+		cleanLine = re.sub('\W+',' ', line )
+		wordlist = cleanLine.split()
+		wordfreq = [wordlist.count(p) for p in wordlist]
+    		freq_dict[d].update(dict(zip(wordlist,wordfreq)))
+			
 		
-print "gagan"
 input = sys.argv[1:5]
 if len(input) == 4:
 	mode = input[0]
@@ -31,5 +38,7 @@ else:
 print mode, directory, model_file, fraction
 if mode == "training":
 	calculate_Bayesian(directory)
+	pickle.dump(freq_dict, open(str(model_file), "wb" ) )
+	load_dict = pickle.load( open(str(model_file), "rb" ) )
 if mode == "test":
 	print "test"
