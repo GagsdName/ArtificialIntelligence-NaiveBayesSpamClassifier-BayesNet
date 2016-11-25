@@ -39,6 +39,7 @@ def findAccuracy(benchmark, predictions):
 # After doing this for all the tokens in test document, we compare the spam and non-spam count and
 # whichever is greater, we label the document accordingly.
 # Accuracy achieved with this basic model: 94%
+# After removing the stopwords and punctuations, the accuracy drops to 85%
 ####################################################################################################
 def naive_bayes_binary(targetDir, benchmark):
     predictions = []
@@ -96,6 +97,8 @@ def naive_bayes_binary(targetDir, benchmark):
 # P(Spam/w1,w2,..,wn) = P(Spam).P(w1/Spam).P(w2/Spam)...P(wn/Spam)
 # P(Non-Spam/w1,w2,..,wn) = P(Non-Spam).P(w1/Non-Spam).P(w2/Non-Spam)...P(wn/Non-Spam)
 # Mark the test document as Spam if P(Spam/w1,w2,..,wn)>=P(Non-Spam/w1,w2,..,wn); Non-Spam otherwise
+# Accuracy achieved with this basic model: 63%
+# After removing the stopwords and punctuations, the accuracy drops to 43%
 def naive_bayes_prob(trainingData, targetDir, benchmark):
     predictions = []
     # Running Bayes Classifier with Binary features
