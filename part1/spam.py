@@ -10,8 +10,36 @@ from os.path import isfile ,splitext, join
 from os import listdir
 from trainer import Trainer
 
+
+####################################################################################################
+# This method calculates the Prior Probabilities P(Spam) and P(Non-Spam) from Training Data
+def getPriors(trainingData):
+    spamProb = trainingData.spamDocs / trainingData.totalDocs
+    nonSpamProb = trainingData.nonSpamDocs / trainingData.totalDocs
+    return (spamProb, nonSpamProb)
+####################################################################################################
+
+####################################################################################################
+# This method calculates the accuracy of a classifier.
+# Input: Benchmark array and Predictions array
+# Output: Accuracy value
+def findAccuracy(benchmark, predictions):
+    correctCount = 0
+    for i in range(0, len(benchmark)):
+        if benchmark[i] == predictions[i]:
+            correctCount += 1
+    return (correctCount/len(benchmark))   
+####################################################################################################
+
 ####################################################################################################
 # This method calculates the accuracy based on Naive Bayes Binary Classifier model
+# This model only considers whether a token in test document occurred in training data or not.
+# If the token did not occur at all, it is ignored completely. If it occurs in the SPAM email, then
+# the spam count is incremented, if it occurs in non-spam email, non-spam count is incremented.
+# After doing this for all the tokens in test document, we compare the spam and non-spam count and
+# whichever is greater, we label the document accordingly.
+# Accuracy achieved with this basic model: 94%
+####################################################################################################
 def naive_bayes_binary(targetDir, benchmark):
     predictions = []
     print("{}-{}".format('Total Test Docs', len(benchmark)))
@@ -56,19 +84,18 @@ def naive_bayes_binary(targetDir, benchmark):
         else:
             predictions.append(0)
             
-    # Calculate accuracy
-    correctCount = 0
-    for i in range(0, len(benchmark)):
-        if benchmark[i] == predictions[i]:
-            correctCount += 1
-    print("{}-{}".format('Length of Benchmark', len(benchmark)))
-    print("{}-{}".format('Length of Predictions', len(predictions)))  
-    print("{}-{}".format('Correct Predictions', correctCount))      
-    print("{}-{}".format('Naive Bayes Binary Classifier Accuracy', correctCount/len(predictions)))
+    # print("{}-{}".format('Length of Benchmark', len(benchmark)))
+    # print("{}-{}".format('Length of Predictions', len(predictions)))  
+    # print("{}-{}".format('Correct Predictions', correctCount))      
+    print("{}-{}".format('Naive Bayes Binary Classifier Accuracy', findAccuracy(benchmark, predictions)))
 ####################################################################################################
 
 ####################################################################################################
-# This method calculates the accuracy based on Naive Bayes Binary Classifier model
+# This method calculates the accuracy based on Naive Bayes Continuous Classifier model
+# Ignore the unseen tokens from test document
+# P(Spam/w1,w2,..,wn) = P(Spam).P(w1/Spam).P(w2/Spam)...P(wn/Spam)
+# P(Non-Spam/w1,w2,..,wn) = P(Non-Spam).P(w1/Non-Spam).P(w2/Non-Spam)...P(wn/Non-Spam)
+# Mark the test document as Spam if P(Spam/w1,w2,..,wn)>=P(Non-Spam/w1,w2,..,wn); Non-Spam otherwise
 def naive_bayes_prob(trainingData, targetDir, benchmark):
     predictions = []
     # Running Bayes Classifier with Binary features
@@ -76,8 +103,7 @@ def naive_bayes_prob(trainingData, targetDir, benchmark):
     testDocs = [ doc for doc in listdir(targetDir+'./spam/') if splitext(doc)[0].startswith('0')]
     for doc in testDocs:
         with open(join(datasetDir, './spam/', doc), 'r') as currentDoc:
-            spamProb = trainingData.spamDocs / trainingData.totalDocs
-            nonSpamProb = trainingData.nonSpamDocs / trainingData.totalDocs
+            spamProb, nonSpamProb = getPriors(trainingData)
             for line in currentDoc:
                 for token in line.split():
                     # Ignore the tokens not seen in training data
@@ -118,10 +144,10 @@ def naive_bayes_prob(trainingData, targetDir, benchmark):
     for i in range(0, len(benchmark)):
         if benchmark[i] == predictions[i]:
             correctCount += 1
-    print("{}-{}".format('Length of Benchmark', len(benchmark)))
-    print("{}-{}".format('Length of Predictions', len(predictions)))  
-    print("{}-{}".format('Correct Predictions', correctCount))      
-    print("{}-{}".format('Naive Bayes Continuous Classifier Accuracy', correctCount/len(predictions)))
+    # print("{}-{}".format('Length of Benchmark', len(benchmark)))
+    # print("{}-{}".format('Length of Predictions', len(predictions)))  
+    # print("{}-{}".format('Correct Predictions', correctCount))      
+    print("{}-{}".format('Naive Bayes Continuous Classifier Accuracy', findAccuracy(benchmark, predictions)))
 ####################################################################################################
 if len(sys.argv) != 5:
     print('Invalid number of input arguments.')
@@ -151,6 +177,7 @@ if mode == 'test':
     # print(spamProb)
     # print(nonSpamProb)
     # Collect the TEST documents from spam and notspam folders
+    # Mark Spam Documents with '1' and Non-Spam Documents with '0'
     testDocs = [ doc for doc in listdir(datasetDir+'./spam/') if splitext(doc)[0].startswith('0')]
     spam = [1] * len(testDocs)
     testDocs += [ doc for doc in listdir(datasetDir+'./notspam/') if splitext(doc)[0].startswith('0')]
