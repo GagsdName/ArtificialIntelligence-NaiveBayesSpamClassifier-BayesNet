@@ -5,6 +5,7 @@ from os import listdir
 from os.path import splitext, join
 from re import findall
 import pickle
+import operator
 
 class Trainer:
     def __init__(self):
@@ -32,7 +33,7 @@ class Trainer:
             print("{}-{}".format('Current document', doc))
             with open(join(spamDir,doc), 'r') as currentDoc:
                 for line in currentDoc:
-                    for token in findall(r"[\w]+|[?.,:;!]+", line):
+                    for token in findall(r"[\w]+|[?.,:;!]+", line.lower()):
                         if token in stop_tokens: continue
                         self.totalTokens += 1
                         self.spamTokens += 1
@@ -55,7 +56,7 @@ class Trainer:
             print("{}-{}".format('Current document', doc))
             with open(join(nonSpamDir,doc), 'r') as currentDoc:
                 for line in currentDoc:
-                    for token in findall(r"[\w]+|[?.,:;!]+", line):
+                    for token in findall(r"[\w]+|[?.,:;!]+", line.lower()):
                         if token in stop_tokens: continue
                         self.totalTokens += 1
                         self.nonSpamTokens += 1
@@ -71,12 +72,27 @@ class Trainer:
         with open(outputFile+'.pkl', 'wb') as modelFile:
             pickle.dump(self, modelFile)
             modelFile.close()
+            
+    def findLikelySpamKeywords(self):
+        spamTokenFrequency = {}
+        nonSpamTokenFrequency = {}
+        for token in self.features:
+            spamTokenFrequency[token] = self.features[token][0]
+            nonSpamTokenFrequency[token] = self.features[token][1]
+        mostLikelySpam = sorted(spamTokenFrequency.items(), key=operator.itemgetter(1))
+        leastLikelySpam = sorted(nonSpamTokenFrequency.items(), key=operator.itemgetter(1))
+        print('Keywords most likely associated with Spam: ')
+        for i in range(0, 10):
+            print(mostLikelySpam[i][0])
+        print('Keywords most likely associated with Non-Spam: ')
+        for i in range(0, 10):
+            print(leastLikelySpam[i][0])
 
-''' Test Training                    
+# Test Training                    
 trainer = Trainer()
 trainer.trainSpamDocs('./train/spam')
-trainer.trainSpamDocs('./train/notspam')
-'''
+trainer.trainNonSpamDocs('./train/notspam')
+trainer.findLikelySpamKeywords()
 '''
 ##### Creating a Pickle file to be used in training #####
 with open('stop_words.pkl', 'wb') as stop_words_file:
