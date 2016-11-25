@@ -32,7 +32,7 @@ class Trainer:
                         nonSpamCount = (self.features[token][1]) if token in self.features else 0
                         self.features[token] = (spamCount, nonSpamCount)
                 currentDoc.close()
-            
+        print("{}-{}".format('Total Spam Docs', self.spamDocs))
         print('Training on Spam Emails completed!')
         # print(self.features)
     
@@ -53,7 +53,7 @@ class Trainer:
                         spamCount = (self.features[token][1]) if token in self.features else 0
                         self.features[token] = (spamCount, nonSpamCount)
                 currentDoc.close()
-            
+        print("{}-{}".format('Total Non-Spam Docs', self.nonSpamDocs))    
         print('Training on Non-Spam Emails completed!')
         # print(self.features)
         
