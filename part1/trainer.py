@@ -4,6 +4,7 @@ Created on 21-Nov-2016
 from os import listdir
 from os.path import splitext, join
 from re import findall
+import string
 import pickle
 import operator
 
@@ -20,11 +21,13 @@ class Trainer:
     def get_stop_words(self):
         with open('stop_words.pkl', 'rb') as stop_words_file:
             return pickle.load(stop_words_file)
-     
+# Pre-processing steps:
+# 1) Tokenization 2) Stopwords, punctuation removal 3) Lower case conversion
     def trainSpamDocs(self, spamDir):
         print('Training on Spam Emails inside /train/spam ...')
         print('Extracting Stop-Words...')
         stop_tokens = self.get_stop_words()
+        replace_punctuation = string.maketrans(string.punctuation, ' '*len(string.punctuation))
         # Consider only those files that begin with '0' -> Avoid noise introduction from cmds file
         spamDocs = [ spamDoc for spamDoc in listdir(spamDir) if splitext(spamDoc)[0].startswith('0')]
         for doc in spamDocs:
@@ -33,7 +36,7 @@ class Trainer:
             print("{}-{}".format('Current document', doc))
             with open(join(spamDir,doc), 'r') as currentDoc:
                 for line in currentDoc:
-                    for token in findall(r"[\w]+|[?.,:;!]+", line.lower()):
+                    for token in line.lower().translate(replace_punctuation).split():
                         if token in stop_tokens: continue
                         self.totalTokens += 1
                         self.spamTokens += 1
@@ -48,6 +51,7 @@ class Trainer:
     def trainNonSpamDocs(self, nonSpamDir):
         print('Training on Non-Spam Emails inside /train/notspam ...')
         stop_tokens = self.get_stop_words()
+        replace_punctuation = string.maketrans(string.punctuation, ' '*len(string.punctuation))
         # Consider only those files that begin with '0' -> Avoid noise introduction from cmds file
         nonspamDocs = [ nonspamDoc for nonspamDoc in listdir(nonSpamDir) if splitext(nonspamDoc)[0].startswith('0')]
         for doc in nonspamDocs:
@@ -56,12 +60,12 @@ class Trainer:
             print("{}-{}".format('Current document', doc))
             with open(join(nonSpamDir,doc), 'r') as currentDoc:
                 for line in currentDoc:
-                    for token in findall(r"[\w]+|[?.,:;!]+", line.lower()):
+                    for token in line.lower().translate(replace_punctuation).split():
                         if token in stop_tokens: continue
                         self.totalTokens += 1
                         self.nonSpamTokens += 1
-                        nonSpamCount = (self.features[token][0]+1) if token in self.features else 1
-                        spamCount = (self.features[token][1]) if token in self.features else 0
+                        nonSpamCount = (self.features[token][1]+1) if token in self.features else 1
+                        spamCount = (self.features[token][0]) if token in self.features else 0
                         self.features[token] = (spamCount, nonSpamCount)
                 currentDoc.close()
         print("{}-{}".format('Total Non-Spam Docs', self.nonSpamDocs))    
@@ -79,8 +83,8 @@ class Trainer:
         for token in self.features:
             spamTokenFrequency[token] = self.features[token][0]
             nonSpamTokenFrequency[token] = self.features[token][1]
-        mostLikelySpam = sorted(spamTokenFrequency.items(), key=operator.itemgetter(1))
-        leastLikelySpam = sorted(nonSpamTokenFrequency.items(), key=operator.itemgetter(1))
+        mostLikelySpam = sorted(spamTokenFrequency.items(), key=operator.itemgetter(1), reverse=True)
+        leastLikelySpam = sorted(nonSpamTokenFrequency.items(), key=operator.itemgetter(1), reverse=True)
         print('Keywords most likely associated with Spam: ')
         for i in range(0, 10):
             print(mostLikelySpam[i][0])
