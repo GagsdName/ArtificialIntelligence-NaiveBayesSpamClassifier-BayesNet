@@ -33,6 +33,32 @@ def findAccuracy(benchmark, predictions):
 ####################################################################################################
 
 ####################################################################################################
+# This method prints the Confusion Matrix
+# Input: A list of correct/benchmark labels for the test set and a corresponding list of
+# predicted labels
+def printConfusionMatrix(benchmark, predictions):
+    truePos = 0
+    trueNeg = 0
+    falsePos = 0
+    falseNeg = 0
+    for i in range(0, len(benchmark)):
+        if benchmark[i]==1:
+            if predictions[i]==1:
+                truePos += 1
+            else:
+                falseNeg += 1
+        else:
+            if predictions[i]==0:
+                trueNeg += 1
+            else:
+                falsePos += 1
+    print('----- CONFUSION MATRIX -----')
+    print('------- SPAM | NOTSPAM -----')
+    print("{}{}{}{}".format('SPAM    ', truePos, '     ', falseNeg))
+    print("{}{}{}{}".format('NOTSPAM ', falsePos, '     ', trueNeg))
+####################################################################################################
+
+####################################################################################################
 # This method calculates the accuracy based on Naive Bayes Binary Classifier model
 # This model only considers whether a token in test document occurred in training data or not.
 # If the token did not occur at all, it is ignored completely. If it occurs in the SPAM email, then
@@ -91,6 +117,7 @@ def naive_bayes_binary(targetDir, benchmark):
     # print("{}-{}".format('Length of Predictions', len(predictions)))  
     # print("{}-{}".format('Correct Predictions', correctCount))      
     print("{}-{}".format('Naive Bayes Binary Classifier Accuracy', findAccuracy(benchmark, predictions)))
+    printConfusionMatrix(benchmark, predictions)
 ####################################################################################################
 
 ####################################################################################################
@@ -154,6 +181,7 @@ def naive_bayes_prob(trainingData, targetDir, benchmark):
     # print("{}-{}".format('Length of Predictions', len(predictions)))  
     # print("{}-{}".format('Correct Predictions', correctCount))      
     print("{}-{}".format('Naive Bayes Continuous Classifier Accuracy', findAccuracy(benchmark, predictions)))
+    printConfusionMatrix(benchmark, predictions)
 ####################################################################################################
 if len(sys.argv) != 5:
     print('Invalid number of input arguments.')
