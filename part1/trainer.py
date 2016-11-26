@@ -98,8 +98,12 @@ trainer.trainSpamDocs('./train/spam')
 trainer.trainNonSpamDocs('./train/notspam')
 trainer.findLikelySpamKeywords()
 '''
-'''
+# Below is a list containing common HTML keywords responsible to introduce
+# noise in the training. To filter out such tokens from being added into the
+# dictionary during training, we have dumped this list into the same
+# stop_words .pkl pickle file and load it during training.
 ##### Creating a Pickle file to be used in training #####
+'''
 html_tokens = ['font', 'size', 'http', 'width', 'nbsp', 'color', 'height', 'href',
                 'face', 'align', 'localhost', 'arial', 'table', 'content', 'fork',
                 'received', 'list', 'style', 'center', 'border', 'type', 'html',

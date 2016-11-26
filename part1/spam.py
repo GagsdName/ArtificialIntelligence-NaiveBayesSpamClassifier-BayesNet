@@ -67,6 +67,9 @@ def printConfusionMatrix(benchmark, predictions):
 # whichever is greater, we label the document accordingly.
 # Accuracy achieved with this basic model: 94%
 # After removing the stopwords and punctuations, the accuracy drops to 85%
+# After proper tokenization and removing the HTML keywords during training, the accuracy improved
+# to 96.8%. This kind of accuracy is not possible with a Binary Bayes Classifier, so there is 
+# something we are doing wrong here.
 ####################################################################################################
 def naive_bayes_binary(targetDir, benchmark):
     replace_punctuation = string.maketrans(string.punctuation, ' '*len(string.punctuation))
