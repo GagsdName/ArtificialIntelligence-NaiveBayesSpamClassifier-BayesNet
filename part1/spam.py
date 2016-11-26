@@ -6,6 +6,7 @@ Created on 21-Nov-2016
 from __future__ import division
 import sys
 import pickle
+import string
 from os.path import isfile ,splitext, join
 from os import listdir
 from trainer import Trainer
@@ -42,6 +43,7 @@ def findAccuracy(benchmark, predictions):
 # After removing the stopwords and punctuations, the accuracy drops to 85%
 ####################################################################################################
 def naive_bayes_binary(targetDir, benchmark):
+    replace_punctuation = string.maketrans(string.punctuation, ' '*len(string.punctuation))
     predictions = []
     print("{}-{}".format('Total Test Docs', len(benchmark)))
     # Running Bayes Classifier with Binary features
@@ -52,7 +54,7 @@ def naive_bayes_binary(targetDir, benchmark):
             spamCount = 0
             nonSpamCount = 0
             for line in currentDoc:
-                for token in line.split():
+                for token in line.lower().translate(replace_punctuation).split():
                     if token in trainingData.features:
                         if trainingData.features[token][0]>0:
                             spamCount += 1
@@ -72,7 +74,7 @@ def naive_bayes_binary(targetDir, benchmark):
             spamCount = 0
             nonSpamCount = 0
             for line in currentDoc:
-                for token in line.split():
+                for token in line.lower().translate(replace_punctuation).split():
                     if token in trainingData.features:
                         if trainingData.features[token][0]>0:
                             spamCount += 1
@@ -100,6 +102,7 @@ def naive_bayes_binary(targetDir, benchmark):
 # Accuracy achieved with this basic model: 63%
 # After removing the stopwords and punctuations, the accuracy drops to 43%
 def naive_bayes_prob(trainingData, targetDir, benchmark):
+    replace_punctuation = string.maketrans(string.punctuation, ' '*len(string.punctuation))
     predictions = []
     # Running Bayes Classifier with Binary features
     # First go over the Spam Test Docs
@@ -108,7 +111,7 @@ def naive_bayes_prob(trainingData, targetDir, benchmark):
         with open(join(datasetDir, './spam/', doc), 'r') as currentDoc:
             spamProb, nonSpamProb = getPriors(trainingData)
             for line in currentDoc:
-                for token in line.split():
+                for token in line.lower().translate(replace_punctuation).split():
                     # Ignore the tokens not seen in training data
                     if token in trainingData.features:
                         if trainingData.features[token][0]>0:
@@ -129,7 +132,7 @@ def naive_bayes_prob(trainingData, targetDir, benchmark):
             spamProb = trainingData.spamDocs / trainingData.totalDocs
             nonSpamProb = trainingData.nonSpamDocs / trainingData.totalDocs
             for line in currentDoc:
-                for token in line.split():
+                for token in line.lower().translate(replace_punctuation).split():
                     if token in trainingData.features:
                         if trainingData.features[token][0]>0:
                             spamProb *= trainingData.features[token][0] / trainingData.spamTokens
@@ -166,6 +169,7 @@ if mode == 'train':
     trainData.trainSpamDocs(datasetDir+'/spam/')
     trainData.trainNonSpamDocs(datasetDir+'/notspam/')
     trainData.generateModelFile(modelFile)
+    trainData.findLikelySpamKeywords()
     exit()
     
 if mode == 'test':

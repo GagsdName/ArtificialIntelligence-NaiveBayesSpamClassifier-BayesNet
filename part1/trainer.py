@@ -3,7 +3,6 @@ Created on 21-Nov-2016
 '''
 from os import listdir
 from os.path import splitext, join
-from re import findall
 import string
 import pickle
 import operator
@@ -37,7 +36,7 @@ class Trainer:
             with open(join(spamDir,doc), 'r') as currentDoc:
                 for line in currentDoc:
                     for token in line.lower().translate(replace_punctuation).split():
-                        if token in stop_tokens: continue
+                        if token in stop_tokens or token.isdigit() or len(token)<4: continue
                         self.totalTokens += 1
                         self.spamTokens += 1
                         spamCount = (self.features[token][0]+1) if token in self.features else 1
@@ -61,7 +60,7 @@ class Trainer:
             with open(join(nonSpamDir,doc), 'r') as currentDoc:
                 for line in currentDoc:
                     for token in line.lower().translate(replace_punctuation).split():
-                        if token in stop_tokens: continue
+                        if token in stop_tokens or token.isdigit() or len(token)<4: continue
                         self.totalTokens += 1
                         self.nonSpamTokens += 1
                         nonSpamCount = (self.features[token][1]+1) if token in self.features else 1
@@ -92,14 +91,27 @@ class Trainer:
         for i in range(0, 10):
             print(leastLikelySpam[i][0])
 
+'''
 # Test Training                    
 trainer = Trainer()
 trainer.trainSpamDocs('./train/spam')
 trainer.trainNonSpamDocs('./train/notspam')
 trainer.findLikelySpamKeywords()
 '''
+'''
 ##### Creating a Pickle file to be used in training #####
+html_tokens = ['font', 'size', 'http', 'width', 'nbsp', 'color', 'height', 'href',
+                'face', 'align', 'localhost', 'arial', 'table', 'content', 'fork',
+                'received', 'list', 'style', 'center', 'border', 'type', 'html',
+                'text', 'esmtp', 'name', 'xent', 'verdana', 'click', 'bgcolor', 'cnet',
+                'cellspacing', 'cellpadding', 'version', 'zdnet', 'clickthru', 'admin',
+                'online', 'span', 'subject', 'helvetica', 'mail', 'option', 'value',
+                'zzzz', 'email', 'mailto', 'images', 'body', 'ffffff', 'date', 'sans',
+                'serif', 'will', 'message', 'postfix', 'header', 'example', 'charset',
+                'input', 'return', 'smtp', 'valign', 'halign', 'listinfo', 'netnoteinc',
+                'mime', 'subscribe', 'unsubscribe', 'request', 'help', 'delivery',
+                'delivered', 'class', 'home', 'right', 'left', 'list', 'colspan']
 with open('stop_words.pkl', 'wb') as stop_words_file:
-    pickle.dump(set(get_stop_words('en')).union(list(string.punctuation)), stop_words_file)
+    pickle.dump(set(get_stop_words('en')).union(list(string.punctuation)).union(html_tokens), stop_words_file)
     stop_words_file.close()
 '''
