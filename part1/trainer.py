@@ -16,6 +16,7 @@ class Trainer:
         self.spamTokens = 0
         self.nonSpamTokens = 0
         self.features = {}
+        self.featureDocCount = {}
     
     def get_stop_words(self):
         with open('stop_words.pkl', 'rb') as stop_words_file:
@@ -34,8 +35,15 @@ class Trainer:
             self.spamDocs += 1
             print("{}-{}".format('Current document', doc))
             with open(join(spamDir,doc), 'r') as currentDoc:
+                # featurePresent is used to mark the presence of features in current document
+                featurePresent = set()
                 for line in currentDoc:
                     for token in line.lower().translate(replace_punctuation).split():
+                        if token not in featurePresent:
+                            featurePresent.add(token)
+                            featureSpamDocCount = (self.featureDocCount[token][0]+1) if token in self.featureDocCount else 1
+                            featureNonSpamDocCount = (self.featureDocCount[token][1]) if token in self.featureDocCount else 0
+                            self.featureDocCount[token] = (featureSpamDocCount, featureNonSpamDocCount)
                         if token in stop_tokens or token.isdigit() or len(token)<4: continue
                         self.totalTokens += 1
                         self.spamTokens += 1
@@ -58,8 +66,15 @@ class Trainer:
             self.nonSpamDocs += 1
             print("{}-{}".format('Current document', doc))
             with open(join(nonSpamDir,doc), 'r') as currentDoc:
+                # featurePresent is used to mark the presence of features in current document
+                featurePresent = set()
                 for line in currentDoc:
                     for token in line.lower().translate(replace_punctuation).split():
+                        if token not in featurePresent:
+                            featurePresent.add(token)
+                            featureSpamDocCount = (self.featureDocCount[token][0]) if token in self.featureDocCount else 0
+                            featureNonSpamDocCount = (self.featureDocCount[token][1]+1) if token in self.featureDocCount else 1
+                            self.featureDocCount[token] = (featureSpamDocCount, featureNonSpamDocCount)
                         if token in stop_tokens or token.isdigit() or len(token)<4: continue
                         self.totalTokens += 1
                         self.nonSpamTokens += 1
@@ -91,12 +106,17 @@ class Trainer:
         for i in range(0, 10):
             print(leastLikelySpam[i][0])
 
-'''
 # Test Training                    
+'''
 trainer = Trainer()
 trainer.trainSpamDocs('./train/spam')
 trainer.trainNonSpamDocs('./train/notspam')
 trainer.findLikelySpamKeywords()
+print(trainer.featureDocCount['path'])
+print(trainer.featureDocCount['dogma'])
+print(trainer.featureDocCount['single'])
+print(trainer.featureDocCount['transfer'])
+print(trainer.featureDocCount['drop'])
 '''
 # Below is a list containing common HTML keywords responsible to introduce
 # noise in the training. To filter out such tokens from being added into the
