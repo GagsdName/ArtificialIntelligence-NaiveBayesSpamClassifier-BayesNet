@@ -1,7 +1,6 @@
-import sys, glob, os, re, pickle
+import sys, os, re, pickle,json,heapq
 from os import listdir
 from os.path import isfile, join, walk
-from decimal import Decimal
 
 freq_dict={}
 total_topics = 20 #assuming as given in problem statement
@@ -31,8 +30,9 @@ def calculate_from_file(d, filepath):
 	for line in f:
 		cleanLine = re.sub('\W+',' ', line )
 		wordlist = cleanLine.split()
-		wordfreq = [wordlist.count(p) for p in wordlist]
-    		freq_dict[d].update(dict(zip(wordlist,wordfreq)))
+		lowercaselist = [x.lower() for x in wordlist]
+		wordfreq = [wordlist.count(p) for p in lowercaselist]
+    		freq_dict[d].update(dict(zip(lowercaselist,wordfreq)))
 		words_in_file = words_in_file+sum(wordfreq)
 	return words_in_file
 #revise model to include probabilities of words given title
@@ -60,23 +60,32 @@ def predict_topic(directory, loaded_model):
                 			cleanLine = re.sub('\W+',' ', line )
                 			wordlist = cleanLine.split()
 					for p in wordlist:
-						max_val = float(1)/10000000000000000000000000000000000000000000000000000000000000000
+						max_val = float(1)/10**50
 						topic=d
 						for key in loaded_model:
                 					if not key.startswith( 'total', 0, 5 ):
-								if p in loaded_model[key]:
-									if loaded_model[key][p] > max_val:
-										max_val = loaded_model[key][p]
+								if p.lower() in loaded_model[key]:
+									if loaded_model[key][p.lower()] > max_val:
+										max_val = loaded_model[key][p.lower()]
 										topic = key				
 						topic_dict[topic]= topic_dict[topic]+ 1
 				max_cnt = -1
 				topic = ""
 				for d2 in dir_list:
-					if topic_dict[d2] > max_cnt and topic_dict[d2] < 100:
+					if topic_dict[d2] > max_cnt and topic_dict[d2] < 80:
 						max_cnt = topic_dict[d2]
 						topic = str(d2)
 				print "Topic predicted - ", topic	
-			
+def findTopTen():
+	top_dict={}
+	f = open('distinctive_words.txt', 'w')
+	for key in freq_dict:
+		if not key.startswith( 'total', 0, 5 ):
+			top_ten = heapq.nlargest(10,freq_dict[key],freq_dict[key].get)
+			top_dict.update({key:top_ten})
+			#json.dump({key:top_ten}, f, separators=('\n', ': '))
+			#json.dump("\n",f)
+	json.dump(top_dict, f)
 input = sys.argv[1:5]
 if len(input) == 4:
 	mode = input[0]
@@ -90,6 +99,7 @@ print mode, directory, model_file, fraction
 if mode == "train":
 	make_model(directory)
 	revise_model()
+	findTopTen()
 	pickle.dump(freq_dict, open(str(model_file), "wb" ) )	
 #load_dict = pickle.load( open(str(model_file), "rb" ) )
 #	print load_dict
