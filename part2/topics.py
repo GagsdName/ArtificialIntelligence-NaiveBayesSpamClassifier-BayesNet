@@ -1,9 +1,19 @@
 import sys, os, re, pickle,json,heapq
 from os import listdir
 from os.path import isfile, join, walk
+import collections
 
-freq_dict={}
+freq_dict=collections.defaultdict(list)
+prob_dict = collections.defaultdict(dict)
 total_topics = 20 #assuming as given in problem statement
+
+#Class to store topic and count for words
+class topic_count(object):
+	topic = None
+	prob = None
+	def __init__(self, topic, prob):
+		self.topic = topic
+		self.prob = prob
 
 #writes all sums - word frequencies corresponding to each word under a title, total words under each topic and total words under all topics 
 def make_model(directory):
@@ -11,17 +21,13 @@ def make_model(directory):
 	dir_list =  listdir(directory)
 	total_words_under_all = 0
 	for d in dir_list:
-		freq_dict.update({d:{}})#initializing keys with empty values in the dictionary
 		path = directory+"/"+d
 		total_words = 0
 		for root,dirs,files in os.walk(path):
 			for name in files:
 				print d,name
-				total_words = total_words + calculate_from_file(d,path+"/"+name)  #total words in a particular file under the topic directory
-		freq_dict.update({"total words under "+d:total_words}) #updating the dictionary to reflect the total words under a particular topic
-		total_words_under_all = total_words_under_all + total_words #total words under all files under a topic
-	freq_dict.update({"total words under all": total_words_under_all}) #updating the dictionary to reflect total words under all titles
-
+				calculate_from_file(d,path+"/"+name)  #total words in a particular file under the topic directory
+	
 #opens a file and reads it line by line, calculating and recording/updating word frequencies as it goes
 def calculate_from_file(d, filepath):
 	f = open(filepath, 'r')
@@ -31,19 +37,30 @@ def calculate_from_file(d, filepath):
 		cleanLine = re.sub('\W+',' ', line )
 		wordlist = cleanLine.split()	#getting rid of all special chars 
 		lowercaselist = [x.lower() for x in wordlist]	#converting all proper words to lower case for uniformity
-		wordfreq = [wordlist.count(p) for p in lowercaselist] #calculating word frequencies in the line 
-    		freq_dict[d].update(dict(zip(lowercaselist,wordfreq)))	#updating frequencies in the dictionary
-		words_in_file = words_in_file+sum(wordfreq)	#calculating total words in the file
-	return words_in_file
+		for word in lowercaselist:
+			freq_dict[word].append(d)
+	return
+
 #revise model to include probabilities of words given title
 def revise_model():
 	for key in freq_dict:
-		if not key.startswith( 'total', 0, 5 ):
-			for w in freq_dict[key]:
-				if freq_dict[key][w] > 0:
-					prob = float(float(float(freq_dict[key][w])/freq_dict["total words under "+key] )* 1/20)\
-						/ float(freq_dict[key][w])/freq_dict["total words under all"]
-					freq_dict[key][w] = prob
+		temp = get_topics_list(freq_dict[key])
+		prob_dict[key] = temp
+	return
+
+def get_topics_list(topics):
+	topics_count_list = []
+	topicscount = {}
+	for topic in topics:
+		if topic in topicscount:
+			topicscount[topic] = topicscount[topic] + 1
+		else:
+			topicscount.update({topic:1})
+	total_count = sum(topicscount.values())
+	for key in topicscount:
+		topicscount[key] = float(topicscount[key])/total_count
+	return topicscount
+
 #predicts the topic based on MLE							
 def predict_topic(directory, loaded_model):
  	dir_list =  listdir(directory)
@@ -119,8 +136,9 @@ print mode, directory, model_file, fraction
 if mode == "train":
 	make_model(directory)
 	revise_model()
-	findTopTen()
-	pickle.dump(freq_dict, open(str(model_file), "wb" ) )	
+	# findTopTen()
+	print prob_dict
+	pickle.dump(prob_dict, open(str(model_file), "wb" ) )	
 #load_dict = pickle.load( open(str(model_file), "rb" ) )
 #	print load_dict
 if mode == "test":
