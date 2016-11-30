@@ -1,11 +1,16 @@
 '''
 Created on 21-Nov-2016
 '''
+from __future__ import division
 from os import listdir
-from os.path import splitext, join
+from os.path import splitext, join, isfile
+from math import log
+from node import Node
 import string
 import pickle
 import operator
+from sys import setrecursionlimit
+setrecursionlimit(10000)
 
 class Trainer:
     def __init__(self):
@@ -17,6 +22,7 @@ class Trainer:
         self.nonSpamTokens = 0
         self.features = {}
         self.featureDocCount = {}
+        self.mostLikelySpamKeywords = []
     
     def get_stop_words(self):
         with open('stop_words.pkl', 'rb') as stop_words_file:
@@ -39,12 +45,12 @@ class Trainer:
                 featurePresent = set()
                 for line in currentDoc:
                     for token in line.lower().translate(replace_punctuation).split():
+                        if token in stop_tokens or token.isdigit() or len(token)<4 or len(token)>10: continue
                         if token not in featurePresent:
                             featurePresent.add(token)
                             featureSpamDocCount = (self.featureDocCount[token][0]+1) if token in self.featureDocCount else 1
                             featureNonSpamDocCount = (self.featureDocCount[token][1]) if token in self.featureDocCount else 0
                             self.featureDocCount[token] = (featureSpamDocCount, featureNonSpamDocCount)
-                        if token in stop_tokens or token.isdigit() or len(token)<4: continue
                         self.totalTokens += 1
                         self.spamTokens += 1
                         spamCount = (self.features[token][0]+1) if token in self.features else 1
@@ -70,12 +76,12 @@ class Trainer:
                 featurePresent = set()
                 for line in currentDoc:
                     for token in line.lower().translate(replace_punctuation).split():
+                        if token in stop_tokens or token.isdigit()or len(token)<4 or len(token)>10: continue
                         if token not in featurePresent:
                             featurePresent.add(token)
                             featureSpamDocCount = (self.featureDocCount[token][0]) if token in self.featureDocCount else 0
                             featureNonSpamDocCount = (self.featureDocCount[token][1]+1) if token in self.featureDocCount else 1
                             self.featureDocCount[token] = (featureSpamDocCount, featureNonSpamDocCount)
-                        if token in stop_tokens or token.isdigit() or len(token)<4: continue
                         self.totalTokens += 1
                         self.nonSpamTokens += 1
                         nonSpamCount = (self.features[token][1]+1) if token in self.features else 1
@@ -92,25 +98,156 @@ class Trainer:
             modelFile.close()
             
     def findLikelySpamKeywords(self):
+        print(len(self.features))
         spamTokenFrequency = {}
         nonSpamTokenFrequency = {}
         for token in self.features:
             spamTokenFrequency[token] = self.features[token][0]
             nonSpamTokenFrequency[token] = self.features[token][1]
         mostLikelySpam = sorted(spamTokenFrequency.items(), key=operator.itemgetter(1), reverse=True)
+        self.mostLikelySpamKeywords = mostLikelySpam
         leastLikelySpam = sorted(nonSpamTokenFrequency.items(), key=operator.itemgetter(1), reverse=True)
         print('Keywords most likely associated with Spam: ')
         for i in range(0, 10):
             print(mostLikelySpam[i][0])
         print('Keywords most likely associated with Non-Spam: ')
         for i in range(0, 10):
+            if leastLikelySpam[i] in self.mostLikelySpamKeywords:
+                del leastLikelySpam[i]
             print(leastLikelySpam[i][0])
+        
+####################################################################################################
+    # This method generates the DT recursively
+    def DT_Induction(self, topFeatures, targetDir, trainDocs, trainLabels):
+        if len(topFeatures)<44800:
+            return
+        # If all are Spam emails
+        if 0 not in trainLabels:
+            return Node('Spam')
+        elif 1 not in trainLabels:
+            return Node('Not-Spam')
+        root = Node(topFeatures.pop(0)[0])
+        spamPredicates = []
+        spamLabels = []
+        nonSpamPredicates = []
+        nonSpamLabels = []
+        # Check whether the current feature is associated with Spam or Non-Spam
+        spamProb = self.features[root.value][0]/self.spamTokens
+        nonSpamProb = self.features[root.value][1]/self.nonSpamTokens
+        featureLabel = True if spamProb >= nonSpamProb else False
+        for i in range(0, len(trainDocs)):
+            if isfile(join(targetDir+'/spam/', trainDocs[i])):
+                with open(join(targetDir+'/spam/', trainDocs[i])) as temp:
+                    if root.value in temp.read():
+                        if featureLabel:
+                            spamPredicates.append(trainDocs[i])
+                            spamLabels.append(1)
+                        else:
+                            nonSpamPredicates.append(trainDocs[i])
+                            nonSpamLabels.append(1)
+                    else:
+                        if featureLabel:
+                            nonSpamPredicates.append(trainDocs[i])
+                            nonSpamLabels.append(1)
+                        else:
+                            spamPredicates.append(trainDocs[i])
+                            spamLabels.append(1)
+            else:
+                with open(join(targetDir+'/notspam/', trainDocs[i])) as temp:
+                    if root.value in temp.read():
+                        if featureLabel:
+                            spamPredicates.append(trainDocs[i])
+                            spamLabels.append(0)
+                        else:
+                            nonSpamPredicates.append(trainDocs[i])
+                            nonSpamLabels.append(0)
+                    else:
+                        if featureLabel:
+                            nonSpamPredicates.append(trainDocs[i])
+                            nonSpamLabels.append(0)
+                        else:
+                            spamPredicates.append(trainDocs[i])
+                            spamLabels.append(0)
+        root.left = self.DT_Induction(topFeatures, targetDir, spamPredicates, spamLabels)
+        root.right = self.DT_Induction(topFeatures, targetDir, nonSpamPredicates, nonSpamLabels)
+        return root   
+####################################################################################################
+
+####################################################################################################
+# This function prints the node of a DT
+    def printTree(self, node, level):
+        if level<1 or node.left is None or node.right is None:
+            return
+        print('( {} {} {} )'.format(node.value, node.left.value, node.right.value))
+        if node.left is not None:
+            self.printTree(node.left, level-1)
+        if node.right is not None:
+            self.printTree(node.right, level-1)
+####################################################################################################
+
+####################################################################################################
+# This method is used to generate model file for the DT and dump it into a pickle
+    def generateDTModelFile(self, outputFile, root):
+        with open(outputFile+'.pkl', 'wb') as modelFile:
+            pickle.dump(root, modelFile)
+            modelFile.close()
+####################################################################################################
+
+####################################################################################################
+# This method builds a Decision Tree based on the Binary Features
+# Each feature is considered to be an attribute and then for each attribute, we calculate the average
+# disorder. Each attribute has a PRESENT or NOT_PRESENT value, so each node in the DT will have two
+# branches coming out. If an attribute is PRESENT, mark the document as SPAM otherwise move to the
+# left node of the tree.
+# HOW TO INTERPRET THE DT: Each node of the tree is printed as a 3-valued tuple in the main console.
+# The first value represents the value of that node, 2nd value represents the left branch and the
+# 3rd value represents the right branch.
+    def buildDTBinary(self, trainDir, outputFile):
+        # Calculate the entropy score for each feature
+        print('Generating the Decision Tree...')
+        disorderMap = {}
+        for feature in self.features:
+            presentCount = self.featureDocCount[feature][0]+self.featureDocCount[feature][1]
+            notPresentCount = self.totalDocs - presentCount
+            disorderScore = 0.0
+            # First calculate for IF TOKEN PRESENT
+            temp = 0
+            for j in range(0,2):
+                if presentCount>0 and self.featureDocCount[feature][j]>0:
+                    temp += (-1)*(self.featureDocCount[feature][j]/presentCount)*log(self.featureDocCount[feature][j]/presentCount)
+            temp *= presentCount/(presentCount+notPresentCount)
+            disorderScore += temp
+            # Now calculate for IF TOKEN NOT PRESENT
+            temp = 0
+            for j in range(0,2):
+                if notPresentCount>0 and self.featureDocCount[feature][j]>0:
+                    temp += (-1)*(((self.spamDocs if j==0 else self.nonSpamDocs) - self.featureDocCount[feature][j])/notPresentCount)*log(((self.spamDocs if j==0 else self.nonSpamDocs) - self.featureDocCount[feature][j])/notPresentCount)
+            temp *= notPresentCount/(presentCount+notPresentCount)
+            disorderScore += temp
+            disorderMap[feature] = disorderScore
+            
+        # Now sort the disorderMap in increasing order of disorderScore
+        topFeatures = sorted(disorderMap.items(), key=operator.itemgetter(1))
+        # Generate a list of all training documents to be used for building DT
+        trainDocs = [ spamDoc for spamDoc in listdir(trainDir+'/spam/') if splitext(spamDoc)[0].startswith('0')]
+        spamLabels = [1] * len(trainDocs)
+        trainDocs += [ nonSpamDoc for nonSpamDoc in listdir(trainDir+'/notspam/') if splitext(nonSpamDoc)[0].startswith('0')]
+        nonSpamLabels = [0] * (len(trainDocs)-len(spamLabels))
+        trainLabels = spamLabels + nonSpamLabels
+        # Create a Decision Tree
+        root = self.DT_Induction(topFeatures, trainDir, trainDocs, trainLabels)
+        self.printTree(root, 5)
+        print('Saving the DT model file into pickle...')
+        self.generateDTModelFile(outputFile, root)
+####################################################################################################
+
 
 # Test Training                    
 '''
 trainer = Trainer()
 trainer.trainSpamDocs('./train/spam')
 trainer.trainNonSpamDocs('./train/notspam')
+print(trainer.features)
 trainer.findLikelySpamKeywords()
 print(trainer.featureDocCount['path'])
 print(trainer.featureDocCount['dogma'])
@@ -134,7 +271,8 @@ html_tokens = ['font', 'size', 'http', 'width', 'nbsp', 'color', 'height', 'href
                 'serif', 'will', 'message', 'postfix', 'header', 'example', 'charset',
                 'input', 'return', 'smtp', 'valign', 'halign', 'listinfo', 'netnoteinc',
                 'mime', 'subscribe', 'unsubscribe', 'request', 'help', 'delivery',
-                'delivered', 'class', 'home', 'right', 'left', 'list', 'colspan']
+                'delivered', 'class', 'home', 'right', 'left', 'list', 'colspan', 'path',
+                'sender', 'receiver', 'recipient', 'title']
 with open('stop_words.pkl', 'wb') as stop_words_file:
     pickle.dump(set(get_stop_words('en')).union(list(string.punctuation)).union(html_tokens), stop_words_file)
     stop_words_file.close()

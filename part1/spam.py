@@ -7,13 +7,9 @@ from __future__ import division
 import sys
 import pickle
 import string
-import operator
 from os.path import isfile ,splitext, join
 from os import listdir
 from trainer import Trainer
-from math import log
-from node import Node
-
 
 ####################################################################################################
 # This method calculates the Prior Probabilities P(Spam) and P(Non-Spam) from Training Data
@@ -191,78 +187,41 @@ def naive_bayes_prob(trainingData, targetDir, benchmark):
 ####################################################################################################
 
 ####################################################################################################
-# This method builds a Decision Tree based on the Binary Features
-# Each feature is considered to be an attribute and then for each attribute, we calculate the average
-# disorder. Each attribute has a PRESENT or NOT_PRESENT value, so each node in the DT will have two
-# branches coming out. If an attribute is PRESENT, mark the document as SPAM otherwise move to the
-# left node of the tree.
-def buildDTBinary(trainingData, targetDir, benchmark):
-    # Calculate the entropy score for each feature
-    disorderMap = {}
-    for feature in trainingData.features:
-        presentCount = trainingData.featureDocCount[feature][0]+trainingData.featureDocCount[feature][1]
-        notPresentCount = trainingData.totalDocs - presentCount
-        disorderScore = 0.0
-        # First calculate for IF TOKEN PRESENT
-        temp = 0
-        for j in range(0,2):
-            if presentCount>0 and trainingData.featureDocCount[feature][j]>0:
-                temp += (-1)*(trainingData.featureDocCount[feature][j]/presentCount)*log(trainingData.featureDocCount[feature][j]/presentCount)
-        temp *= presentCount/(presentCount+notPresentCount)
-        disorderScore += temp
-        # Now calculate for IF TOKEN NOT PRESENT
-        temp = 0
-        for j in range(0,2):
-            if notPresentCount>0 and trainingData.featureDocCount[feature][j]>0:
-                temp += (-1)*(((trainingData.spamDocs if j==0 else trainingData.nonSpamDocs) - trainingData.featureDocCount[feature][j])/notPresentCount)*log(((trainingData.spamDocs if j==0 else trainingData.nonSpamDocs) - trainingData.featureDocCount[feature][j])/notPresentCount)
-        temp *= notPresentCount/(presentCount+notPresentCount)
-        disorderScore += temp
-        disorderMap[feature] = disorderScore
-        
-    # Now sort the disorderMap in increasing order of disorderScore
-    topFeatures = sorted(disorderMap.items(), key=operator.itemgetter(1))
-    # print(topFeatures)
-    # Create a Decision Tree
-    root = Node(topFeatures[0][0])
-    currentNode = root
-    for i in range(1, 5):
-        temp = Node(topFeatures[i][0])
-        currentNode.right = Node('Spam')
-        currentNode.left = temp
-        currentNode = temp
-    currentNode.right = Node('Spam')
-    currentNode.left = Node('Not-Spam')
-    
-    currentNode = root
-    for i in range(0, 4):
-        currentNode.printNode()
-        currentNode = currentNode.left
-    return root
-####################################################################################################
-
-####################################################################################################
 # This method runs the Decision Tree Binary classifier on Test set and prints the results
-# Accuracy received with the DT level 10: 33%
+# Accuracy received with the DT level 10: 33%. The decision tree is heavily biased towards Not-Spam.
+# Apparently there were some bugs in the way we generated the DT above. After correcting them,
+# the accuracy we get is 65%. The total features in our dictionary are around 47k. To generate the
+# DT, we have only used the top 2.5k features. Using more features hit the Python recursion limit
+# and sometimes Python crashed while saving the DT into a pickle.
 def runDTBinary(dt, targetDir, benchmark):
     predictions = []
-    replace_punctuation = string.maketrans(string.punctuation, ' '*len(string.punctuation))
     # First go over the Spam Test Docs
     testDocs = [ doc for doc in listdir(targetDir+'./spam/') if splitext(doc)[0].startswith('0')]
     for doc in testDocs:
         with open(join(datasetDir, './spam/', doc), 'r') as currentDoc:
-            tokenSet = set()
-            for line in currentDoc:
-                tokenSet.union(line.lower().translate(replace_punctuation).split())
             currentNode = dt
-            flag = False
-            while currentNode.value != 'Not-Spam':
-                if currentNode.value in tokenSet:
-                    flag = True
-                    break
+            emailText = currentDoc.read()
+            while currentNode.value is not None:
+                if currentNode.value in emailText:
+                    if currentNode.left.value == 'Spam':
+                        predictions.append(1)
+                        break
+                    elif currentNode.left.value == 'Not-Spam':
+                        predictions.append(0)
+                        break
+                    else:
+                        currentNode = currentNode.left
+                        continue
                 else:
-                    currentNode = currentNode.left
-            predictions.append(1 if flag else 0)
-            currentDoc.close()
+                    if currentNode.right.value == 'Spam':
+                        predictions.append(1)
+                        break
+                    elif currentNode.left.value == 'Not-Spam':
+                        predictions.append(0)
+                        break
+                    else:
+                        currentNode = currentNode.right
+        currentDoc.close()
             
     # Next go over the Non-Spam Test Docs
     testDocs = [ doc for doc in listdir(targetDir+'./notspam/') if splitext(doc)[0].startswith('0')]
@@ -270,15 +229,27 @@ def runDTBinary(dt, targetDir, benchmark):
         with open(join(datasetDir, './notspam/', doc), 'r') as currentDoc:
             currentNode = dt
             emailText = currentDoc.read()
-            flag = False
-            while currentNode.value != 'Not-Spam':
+            while currentNode.value is not None:
                 if currentNode.value in emailText:
-                    flag = True
-                    break
+                    if currentNode.left.value == 'Spam':
+                        predictions.append(1)
+                        break
+                    elif currentNode.left.value == 'Not-Spam':
+                        predictions.append(0)
+                        break
+                    else:
+                        currentNode = currentNode.left
+                        continue
                 else:
-                    currentNode = currentNode.left
-            predictions.append(1 if flag else 0)
-            currentDoc.close()
+                    if currentNode.right.value == 'Spam':
+                        predictions.append(1)
+                        break
+                    elif currentNode.left.value == 'Not-Spam':
+                        predictions.append(0)
+                        break
+                    else:
+                        currentNode = currentNode.right
+        currentDoc.close()
     print("{}-{}".format('Decision Tree Binary Classifier Accuracy', findAccuracy(benchmark, predictions)))
     printConfusionMatrix(benchmark, predictions)
 ####################################################################################################
@@ -292,12 +263,19 @@ technique = sys.argv[2]
 datasetDir = './' + sys.argv[3]
 modelFile = './' + sys.argv[4]
 
-if mode == 'train':
+if mode == 'train' and technique == 'bayes':
     trainData = Trainer()
     trainData.trainSpamDocs(datasetDir+'/spam/')
     trainData.trainNonSpamDocs(datasetDir+'/notspam/')
     trainData.generateModelFile(modelFile)
     trainData.findLikelySpamKeywords()
+    exit()
+    
+if mode == 'train' and technique == 'dt':
+    trainData = Trainer()
+    trainData.trainSpamDocs(datasetDir+'/spam/')
+    trainData.trainNonSpamDocs(datasetDir+'/notspam/')
+    trainData.buildDTBinary(datasetDir, modelFile)
     exit()
     
 if mode == 'test':
@@ -307,8 +285,8 @@ if mode == 'test':
         exit()
     with open(modelFile+'.pkl', 'rb') as trainingDataFile:
         trainingData = pickle.load(trainingDataFile)
-    spamProb = trainingData.spamDocs/trainingData.totalDocs
-    nonSpamProb = trainingData.nonSpamDocs/trainingData.totalDocs
+    # spamProb = trainingData.spamDocs/trainingData.totalDocs
+    # nonSpamProb = trainingData.nonSpamDocs/trainingData.totalDocs
     # print(spamProb)
     # print(nonSpamProb)
     # Collect the TEST documents from spam and notspam folders
@@ -319,7 +297,13 @@ if mode == 'test':
     nonspam = [0] * (len(testDocs)-len(spam))
     benchmark = spam + nonspam
     
-    # Run the Naive-Bayes Binary Classifier
-    # naive_bayes_binary(datasetDir, benchmark)
-    # naive_bayes_prob(trainingData, datasetDir, benchmark)
-    runDTBinary(buildDTBinary(trainingData, datasetDir, benchmark), datasetDir, benchmark)
+    if technique == 'bayes':
+        # Run the Naive-Bayes Binary Classifiers
+        naive_bayes_binary(datasetDir, benchmark)
+        naive_bayes_prob(trainingData, datasetDir, benchmark)
+    elif technique == 'dt':
+        runDTBinary(trainingData, datasetDir, benchmark)
+    else:
+        print('Invalid Technique. Accepted values: \'bayes\' or \'dt\'')
+        exit()
+    # Run the Decision Tree Classifiers
