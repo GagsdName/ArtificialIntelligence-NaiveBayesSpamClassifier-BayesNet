@@ -9,6 +9,7 @@ prob_dict = collections.defaultdict(dict)
 total_topics = 20 #assuming as given in problem statement
 all_topics = ['atheism', 'autos', 'baseball', 'christian', 'crypto', 'electronics', 'forsale', 'graphics', 'guns', 'hockey', 'mac', 'xwindows', 'windows', 'space', 'religion', 'politics', 'pc', 'motorcycles', 'mideast', 'medical']
 
+
 #writes all sums - word frequencies corresponding to each word under a title, total words under each topic and total words under all topics 
 def make_model(directory):
 	print "Bayes"
@@ -63,6 +64,8 @@ def predict_topic(directory, loaded_model):
 	count = 0 #just a counter to help in identifying indexes corresponding to topics in the confusion matrix
 	w = 20 #length and width of the confusion matrix - given assumption in problem statement - total number of topics is 20 
 	conf_mtr = [[0 for x in range(w)] for y in range(w)] #intializing confusion matrix	
+	total_correct = 0
+	total = 0
 
 	#intialising confusion matrix
 	for dr in dir_list:
@@ -99,13 +102,19 @@ def predict_topic(directory, loaded_model):
 				print "Topic predicted - ", topic
 				if topic != d:
 					conf_mtr[index_dict[d]][index_dict[topic]]+=1 #"adding to the confusion"
+				else:
+					total_correct += 1
+				total += 1
 
 	#printing confusion matrix
 	for x in range(20):
 		temp = ""
 		for y in range(20):
 			temp = temp + str(conf_mtr[x][y])+" "
-		print temp+"\n"		
+		print temp+"\n"
+
+	print "Accuracy: ",
+	print float(total_correct)*100/total	
 	
 def findTopTen():
 	top_dict={}
