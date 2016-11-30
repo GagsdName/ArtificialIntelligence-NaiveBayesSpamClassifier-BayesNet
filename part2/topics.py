@@ -2,18 +2,12 @@ import sys, os, re, pickle,json,heapq
 from os import listdir
 from os.path import isfile, join, walk
 import collections
+import numpy as np
 
 freq_dict=collections.defaultdict(list)
 prob_dict = collections.defaultdict(dict)
 total_topics = 20 #assuming as given in problem statement
-
-#Class to store topic and count for words
-class topic_count(object):
-	topic = None
-	prob = None
-	def __init__(self, topic, prob):
-		self.topic = topic
-		self.prob = prob
+all_topics = ['atheism', 'autos', 'baseball', 'christian', 'crypto', 'electronics', 'forsale', 'graphics', 'guns', 'hockey', 'mac', 'xwindows', 'windows', 'space', 'religion', 'politics', 'pc', 'motorcycles', 'mideast', 'medical']
 
 #writes all sums - word frequencies corresponding to each word under a title, total words under each topic and total words under all topics 
 def make_model(directory):
@@ -84,28 +78,28 @@ def predict_topic(directory, loaded_model):
 					topic_dict.update({d1:0}) #updating the dictionary to reflect number of word matches to corresponding topics  
 				print d,name
                                 f = open(path+"/"+name, 'r')
+                                topic_count = {}
         			for line in f:	
                 			cleanLine = re.sub('\W+',' ', line ) #cleaning line to exclude special chars 
                 			wordlist = cleanLine.split() #getting proper words from the line
 					for p in wordlist:
-						max_val = float(1)/10**50 #random value assumed for comparison
-						topic=d
-						for key in loaded_model:
-                					if not key.startswith( 'total', 0, 5 ):
-								if p.lower() in loaded_model[key]:
-									if loaded_model[key][p.lower()] > max_val:
-										max_val = loaded_model[key][p.lower()]
-										topic = key				
-						topic_dict[topic]= topic_dict[topic]+ 1
-				max_cnt = -1
-				topic = ""
-				for d2 in dir_list:
-					if topic_dict[d2] > max_cnt and topic_dict[d2] < 80:
-						max_cnt = topic_dict[d2]
-						topic = str(d2)
+						word_dict = loaded_model[p.lower()]
+						topics_list = word_dict.keys()
+						prob_dist = word_dict.values()
+						if topics_list:
+							random_topic = np.random.choice(topics_list, p = prob_dist) 
+						else:
+							random_topic = np.random.choice(all_topics)
+
+						if random_topic in topic_count:
+							topic_count[random_topic] = topic_count[random_topic]+1
+						else:
+							topic_count.update({random_topic:1})
+				topic = max(topic_count, key=topic_count.get)
 				print "Topic predicted - ", topic
 				if topic != d:
 					conf_mtr[index_dict[d]][index_dict[topic]]+=1 #"adding to the confusion"
+
 	#printing confusion matrix
 	for x in range(20):
 		temp = ""
