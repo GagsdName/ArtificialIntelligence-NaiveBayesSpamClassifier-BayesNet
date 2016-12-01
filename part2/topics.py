@@ -1,4 +1,4 @@
-import sys, os, re, pickle,json,heapq
+import sys, os, re, pickle,json,heapq, enum
 from os import listdir
 from os.path import isfile, join, walk
 import numpy as np
@@ -8,8 +8,10 @@ freq_dict={}
 topic_documents = {}
 total_topics = 20 #assuming as given in problem statement
 
+Topics = {'atheism':1, 'autos':2, 'baseball':3, 'christian':4, 'crypto':5, 'electronics':6, 'forsale':7, 'graphics':8, 'guns':9,\
+	 'hockey':10, 'mac':11, 'xwindows':12, 'windows':13, 'space':14, 'religion':15, 'politics':16, 'pc':17, 'motorcycles':18, 'mideast':19, 'medical':20}
 
-#writes all sums - word frequencies corresponding to each word under a title, total words under each topic and total words under all topics 
+#writes all sums - word frequencies corresponding to each word under a title, total words under each [opic and total words under all [opics 
 def make_model(directory):
 	print "Bayes"
 	dir_list =  listdir(directory)
@@ -90,10 +92,18 @@ def predict_topic(directory, loaded_model):
 				print "Topic predicted - ", topic_predicted
 				if topic_predicted == d:
 					correct += 1
+				else: conf_mtr[Topics[d]-1][Topics[topic_predicted]-1]+=1 #"adding to the confusion"
 				total += 1
 
 	print "Accuracy: ",
-	print float(correct)*100/total		
+	print float(correct)*100/total, "\n"	
+	
+	#printing confusion matrix
+	for x in range(20):
+		temp = ""
+		for y in range(20):
+			temp = temp + str(conf_mtr[x][y])+"\t"
+		print temp+"\n"	
 	return
 
 def findTopTen():
