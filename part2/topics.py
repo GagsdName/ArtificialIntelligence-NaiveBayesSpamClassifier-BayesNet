@@ -1,4 +1,4 @@
-import sys, os, re, pickle,json,heapq, enum
+import sys, os, re, pickle,json,heapq, random
 from os import listdir
 from os.path import isfile, join, walk
 import numpy as np
@@ -12,15 +12,25 @@ total_topics = 20 #assuming as given in problem statement
 Topics = {}
 
 # helps write all sums - word frequencies corresponding to each word under a title in freq_dict
-def make_model(directory):
+def make_model(directory, fraction):
 	dir_list =  listdir(directory)#list of directories/topics
 	for d in dir_list:
-		freq_dict.update({d:{}})#initializing keys with empty values in the dictionary
+        	if not d.startswith('.'):
+                	freq_dict.update({d:{}})#initializing keys with empty values in the dictionary
+
+	for d in dir_list:
 		path = directory+"/"+d #path to directory 
 		for root,dirs,files in os.walk(path):
 			for name in files:
-				print d,name
-				calculate_from_file(d,path+"/"+name)#calculate frequency of words in the file 
+				r = float(random.random())
+				if r < fraction or r == fraction:
+					print d,name
+					calculate_from_file(d,path+"/"+name)#calculate frequency of words in the file 
+				else:
+					random_topic = np.random.choice(dir_list)
+					while(random_topic.startswith('.')):
+						random_topic = np.random.choice(dir_list)
+					calculate_from_file(random_topic, path+"/"+name)
 			topic_documents.update({d : len(files)}) #Updating topic_documents dictionary to indicate number of files under a particular topic
 
 	return
@@ -93,9 +103,6 @@ def predict_topic(directory, loaded_model):
 					correct += 1
 				else: conf_mtr[Topics[d]-1][Topics[topic_predicted]-1]+=1 #"adding to the confusion" matrix
 				total += 1
-
-	print "Accuracy: ",
-	print float(correct)*100/total, "\n"	
 	
 	#printing confusion matrix
 	for x in range(20):
@@ -105,6 +112,9 @@ def predict_topic(directory, loaded_model):
 		print temp+"\n"	
 	
 	print "Confusion Matrix Index glossary",Topics
+	
+	print "Accuracy: ", float(correct)*100/total, "\n"
+	
 	return
 
 #find top ten ocurring words under all topics
@@ -124,13 +134,13 @@ if len(input) == 4: #check to see if correct number of arguments are there
 	mode = input[0]
 	directory = input[1]
 	model_file = input[2]
-	fraction = input[3]
+	fraction = float(input[3])
 else:
 	print "enter all input parameters!"
 
 
 if mode == "train":
-	make_model(directory) #call to make frequency dictionary - freq_dict
+	make_model(directory, fraction) #call to make frequency dictionary - freq_dict
 	revise_model() #revising freq_dict to indicated conditional probabilities of words given topic
 	findTopTen() #find top ten words under each topic
 	pickle.dump(freq_dict, open(str(model_file), "wb" ) ) #saving calculated model in the file as indicated in command arguments	
