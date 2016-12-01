@@ -4,27 +4,24 @@ from os.path import isfile, join, walk
 import numpy as np
 import math
 
-freq_dict={}
-topic_documents = {}
+freq_dict={} #Contains entries in the format : {<topic>:{<word1>:<conditional probability>, <word2>:<conditional probability>}} 
+topic_documents = {} #Maintains the total number of files in corresponding topics in the format: {<topio>:<file_count>}
 total_topics = 20 #assuming as given in problem statement
 
-Topics = {'atheism':1, 'autos':2, 'baseball':3, 'christian':4, 'crypto':5, 'electronics':6, 'forsale':7, 'graphics':8, 'guns':9,\
-	 'hockey':10, 'mac':11, 'xwindows':12, 'windows':13, 'space':14, 'religion':15, 'politics':16, 'pc':17, 'motorcycles':18, 'mideast':19, 'medical':20}
+#Topics and corresponding indexes are stored in this dictionary to help with creation of confusion matrix
+Topics = {}
 
-#writes all sums - word frequencies corresponding to each word under a title, total words under each [opic and total words under all [opics 
+# helps write all sums - word frequencies corresponding to each word under a title in freq_dict
 def make_model(directory):
-	print "Bayes"
-	dir_list =  listdir(directory)
-	total_words_under_all = 0
+	dir_list =  listdir(directory)#list of directories/topics
 	for d in dir_list:
 		freq_dict.update({d:{}})#initializing keys with empty values in the dictionary
-		path = directory+"/"+d
-		total_words = 0
+		path = directory+"/"+d #path to directory 
 		for root,dirs,files in os.walk(path):
 			for name in files:
 				print d,name
-				calculate_from_file(d,path+"/"+name)  #total words in a particular file under the topic directory
-			topic_documents.update({d : len(files)})
+				calculate_from_file(d,path+"/"+name)#calculate frequency of words in the file 
+			topic_documents.update({d : len(files)}) #Updating topic_documents dictionary to indicate number of files under a particular topic
 
 	return
 
@@ -32,7 +29,6 @@ def make_model(directory):
 def calculate_from_file(d, filepath):
 	f = open(filepath, 'r')
 	d = str(d)
-	words_in_file = 0
 	lowercaselist = []
 	for line in f:
 		cleanLine = re.sub('\W+',' ', line )
@@ -57,24 +53,27 @@ def revise_model():
 #predicts the topic based on MLE							
 def predict_topic(directory, loaded_model):
  	dir_list =  listdir(directory)
-	topic_dict={} #keeps count of words predicted to belong to a certain topic in a certain file
-	index_dict={} #indicating which index in the confusion matrix belongs to which topic
 	count = 0 #just a counter to help in identifying indexes corresponding to topics in the confusion matrix
 	w = 20 #length and width of the confusion matrix - given assumption in problem statement - total number of topics is 20 
 	conf_mtr = [[0 for x in range(w)] for y in range(w)] #intializing confusion matrix	
-	total = 0
-	correct = 0
-	del loaded_model['.DS_Store']
-
+	total = 0 #total number of files predicted
+	correct = 0 #correct number of files predicted
+	#del loaded_model['.DS_Store']
+	
+	#assigning indexes to topics to help later in construction of confusion matrix	
+	for d in dir_list:
+		Topics.update({d:count})
+		count+=1	
+	
 	for d in dir_list:
 		path = directory+"/"+d
-		topic_posterior = {}
+		topic_posterior = {} #holds log of topic posteriors for each topic
 		for root,dirs,files in os.walk(path):
 			for name in files:
 				print d,name
 				for topic in loaded_model:
 					f = open(path+"/"+name, 'r')
-					temp = 0.0
+					temp = 0.0 #intermediate likelihoods
 					for line in f:	
 						cleanLine = re.sub('\W+',' ', line ) #cleaning line to exclude special chars 
 						wordlist = cleanLine.split() #getting proper words from the line
@@ -92,7 +91,7 @@ def predict_topic(directory, loaded_model):
 				print "Topic predicted - ", topic_predicted
 				if topic_predicted == d:
 					correct += 1
-				else: conf_mtr[Topics[d]-1][Topics[topic_predicted]-1]+=1 #"adding to the confusion"
+				else: conf_mtr[Topics[d]-1][Topics[topic_predicted]-1]+=1 #"adding to the confusion" matrix
 				total += 1
 
 	print "Accuracy: ",
@@ -104,8 +103,11 @@ def predict_topic(directory, loaded_model):
 		for y in range(20):
 			temp = temp + str(conf_mtr[x][y])+"\t"
 		print temp+"\n"	
+	
+	print "Confusion Matrix Index glossary",Topics
 	return
 
+#find top ten ocurring words under all topics
 def findTopTen():
 	top_dict={}
 	f = open('distinctive_words.txt', 'w')
@@ -115,9 +117,10 @@ def findTopTen():
 			top_dict.update({key:top_ten})
 			#json.dump({key:top_ten}, f, separators=('\n', ': '))
 			#json.dump("\n",f)
-	json.dump(top_dict, f)
-input = sys.argv[1:5]
-if len(input) == 4:
+	json.dump(top_dict, f) #writing output to distinctive_words.txt in json format
+
+input = sys.argv[1:5] #input arguments
+if len(input) == 4: #check to see if correct number of arguments are there
 	mode = input[0]
 	directory = input[1]
 	model_file = input[2]
@@ -125,16 +128,14 @@ if len(input) == 4:
 else:
 	print "enter all input parameters!"
 
-print mode, directory, model_file, fraction
+
 if mode == "train":
-	make_model(directory)
-	revise_model()
-	findTopTen()
-	pickle.dump(freq_dict, open(str(model_file), "wb" ) )	
-#load_dict = pickle.load( open(str(model_file), "rb" ) )
-#	print load_dict
+	make_model(directory) #call to make frequency dictionary - freq_dict
+	revise_model() #revising freq_dict to indicated conditional probabilities of words given topic
+	findTopTen() #find top ten words under each topic
+	pickle.dump(freq_dict, open(str(model_file), "wb" ) ) #saving calculated model in the file as indicated in command arguments	
+
 if mode == "test":
-	print "test"
-	loaded_model = pickle.load( open(str(model_file), "rb" ) )
-	predict_topic(directory,loaded_model)
+	loaded_model = pickle.load( open(str(model_file), "rb" ) ) #load saved model
+	predict_topic(directory,loaded_model) #predict topic for each file, print them, print accuracy and print confusion matrix
 		
