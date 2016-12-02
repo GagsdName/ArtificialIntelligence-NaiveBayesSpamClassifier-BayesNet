@@ -38,7 +38,11 @@ Created on 21-Nov-2016
 # represented by that node is present in the document or not and move down left or right accordingly.
 # The DT with bnary features is heavily biased towards Not-Spam whereas the DT with continuous features
 # is heavily biased towards Spam, which is clearly evident from the confusion matrix generated. It seems
-# we might have made a mistake while building the decision trees.
+# we might have made a mistake while building the decision trees. Time taken to build the trees is
+# about a couple of minutes.
+# HOW TO INTERPRET THE PRINTED DT: The first value represents the value of that node, 2nd value represents
+# the left branch and the 3rd value represents the right branch. Each line represent a node and the tree
+# is printed in Pre-Order.
 ####################################################################################################
 # Node class to suppor the Decision Tree structure: We have created a separate class Node which represents
 # a node in a decision tree. The value of any node represents the label - 'Spam' or 'Not-Spam' or the

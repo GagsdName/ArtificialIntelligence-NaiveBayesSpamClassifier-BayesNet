@@ -255,15 +255,6 @@ class Trainer:
             modelFile.close()
 ####################################################################################################
 
-####################################################################################################
-# This method builds a Decision Tree based on the Binary Features
-# Each feature is considered to be an attribute and then for each attribute, we calculate the average
-# disorder. Each attribute has a PRESENT or NOT_PRESENT value, so each node in the DT will have two
-# branches coming out. If an attribute is PRESENT, mark the document as SPAM otherwise move to the
-# left node of the tree.
-# HOW TO INTERPRET THE DT: Each node of the tree is printed as a 3-valued tuple in the main console.
-# The first value represents the value of that node, 2nd value represents the left branch and the
-# 3rd value represents the right branch.
     def buildDTBinary(self, trainDir, outputFile):
         # Calculate the entropy score for each feature
         print('Generating the Binary Decision Tree...')
@@ -305,11 +296,6 @@ class Trainer:
         print('Generating the Binary Decision Tree complete...')
 ####################################################################################################
 
-####################################################################################################
-# This method builds a Decision Tree based on the Continuous Features
-# HOW TO INTERPRET THE DT: Each node of the tree is printed as a 3-valued tuple in the main console.
-# The first value represents the value of that node, 2nd value represents the left branch and the
-# 3rd value represents the right branch.
     def buildDTContinuous(self, trainDir, outputFile):
         # Calculate the entropy score for each feature
         print('Generating the Continuous Decision Tree...')
