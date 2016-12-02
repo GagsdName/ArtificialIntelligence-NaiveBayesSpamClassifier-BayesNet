@@ -8,6 +8,7 @@ from copy import deepcopy
 freq_dict={} #Contains entries in the format : {<topic>:{<word1>:<conditional probability>, <word2>:<conditional probability>}} 
 topic_documents = {} #Maintains the total number of files in corresponding topics in the format: {<topio>:<file_count>}
 total_topics = 20 #assuming as given in problem statement
+common_words = ['subject', 'lines', 'from', 'the', 'to', 'of', 'in', 'a', 'and', 'organization']
 
 #Topics and corresponding indexes are stored in this dictionary to help with creation of confusion matrix
 Topics = {}
@@ -80,6 +81,7 @@ def calculate_posteriors(directory):
 	return
 
 def add_words_to_dict(new_freq_dict, topic_predicted, words):
+	words = [val for val in words if val not in common_words] 
 	for w in words:
 		if topic_predicted in new_freq_dict:
 			if w in new_freq_dict[topic_predicted]:
@@ -90,6 +92,7 @@ def add_words_to_dict(new_freq_dict, topic_predicted, words):
 			new_freq_dict.update({topic_predicted : {}})
 			new_freq_dict[topic_predicted][w] = 1
 	return
+
 def posterior_for_topic(f,topic, freq_dict):
 	value = 0.0
 	for line in f:
@@ -122,6 +125,9 @@ def calculate_from_file(d, filepath):
 		for x in wordlist:
 			lowercaselist.append(x.lower())
 	lowercaselist = list(set(lowercaselist))
+	
+	lowercaselist = [val for val in lowercaselist if val not in common_words] 
+	
 	for x in lowercaselist:
 		if x in freq_dict[d]:
 			freq_dict[d][x] += 1	#updating frequency of word under topic
@@ -188,8 +194,6 @@ def findTopTen():
 		if not key.startswith( 'total', 0, 5 ):
 			top_ten = heapq.nlargest(10,freq_dict[key],freq_dict[key].get)
 			top_dict.update({key:top_ten})
-			#json.dump({key:top_ten}, f, separators=('\n', ': '))
-			#json.dump("\n",f)
 	json.dump(top_dict, f) #writing output to distinctive_words.txt in json format
 
 input = sys.argv[1:5] #input arguments
