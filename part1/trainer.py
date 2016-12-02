@@ -107,10 +107,10 @@ class Trainer:
         mostLikelySpam = sorted(spamTokenFrequency.items(), key=operator.itemgetter(1), reverse=True)
         self.mostLikelySpamKeywords = mostLikelySpam
         leastLikelySpam = sorted(nonSpamTokenFrequency.items(), key=operator.itemgetter(1), reverse=True)
-        print('Keywords most likely associated with Spam: ')
+        print('Keywords most associated with Spam: ')
         for i in range(0, 10):
             print(mostLikelySpam[i][0])
-        print('Keywords most likely associated with Non-Spam: ')
+        print('Keywords least associated with Spam: ')
         for i in range(0, 10):
             if leastLikelySpam[i] in self.mostLikelySpamKeywords:
                 del leastLikelySpam[i]
