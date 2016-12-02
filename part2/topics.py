@@ -10,9 +10,10 @@ total_topics = 20 #assuming as given in problem statement
 
 #Topics and corresponding indexes are stored in this dictionary to help with creation of confusion matrix
 Topics = {}
-
+global em_flag 
 # helps write all sums - word frequencies corresponding to each word under a title in freq_dict
 def make_model(directory, fraction):
+	em_flag = False
 	dir_list =  listdir(directory)#list of directories/topics
 	for d in dir_list:
         	if not d.startswith('.'):
@@ -27,12 +28,51 @@ def make_model(directory, fraction):
 					print d,name
 					calculate_from_file(d,path+"/"+name)#calculate frequency of words in the file 
 				else:
+					em_flag = True
 					random_topic = np.random.choice(dir_list)
 					while(random_topic.startswith('.')):
 						random_topic = np.random.choice(dir_list)
 					calculate_from_file(random_topic, path+"/"+name)
 			topic_documents.update({d : len(files)}) #Updating topic_documents dictionary to indicate number of files under a particular topic
+	revise_model()	
+	if em_flag == True:
+		run_em(directory, fraction)
+		
+	return 
 
+# Runs the EM algorithm on randomly labelled data
+def run_em(directory, fraction):
+	for i in range(1):
+		calculate_posteriors(directory)
+	
+#Calculates Topic posteriors and assigns values to topics based on obtained posteriors
+def calculate_posteriors(directory):
+	dir_list = listdir(directory)
+	for d in dir_list:
+      		path = directory+"/"+d
+        	topic_posteriors = {} #holds log of topic posteriors for each topic
+                for root,dirs,files in os.walk(path):
+                	for name in files:
+                                #print d,name
+                                for topic in freq_dict:
+                                        f = open(path+"/"+name, 'r')
+                                        temp = 0.0 #intermediate likelihoods
+                                        for line in f:
+                                                cleanLine = re.sub('\W+',' ', line ) #cleaning line to exclude special chars
+                                                wordlist = cleanLine.split() #getting proper words from the line
+                                                for p in wordlist:
+                                                        if p in freq_dict[topic]:
+                                                                temp += math.log(freq_dict[topic][p])
+                                                        else:
+                                                                temp += math.log(0.0001)
+                                        topic_posteriors.update({topic : temp})
+  				topic_predicted = max(topic_posteriors, key=topic_posteriors.get)
+                                print "Topic predicted - ", topic_predicted, ", original was - ", d
+				if str(topic_predicted) != str(d):
+					if str(d) in freq_dict.keys():
+						val = freq_dict[str(d)] #updating values in model dictionary against the predicted label/topic 
+						del freq_dict[str(d)]
+						freq_dict.update({str(topic_predicted):val})
 	return
 
 #opens a file and reads it line by line, calculating and recording/updating word frequencies as it goes
@@ -48,9 +88,9 @@ def calculate_from_file(d, filepath):
 	lowercaselist = list(set(lowercaselist))
 	for x in lowercaselist:
 		if x in freq_dict[d]:
-			freq_dict[d][x] += 1
+			freq_dict[d][x] += 1	#updating frequency of word under topic
 		else:
-			freq_dict[d].update({x : 1})
+			freq_dict[d].update({x : 1}) #initializing to 1 if not present
 	return
 
 #revise model to include probabilities of words given title
@@ -141,7 +181,7 @@ else:
 
 if mode == "train":
 	make_model(directory, fraction) #call to make frequency dictionary - freq_dict
-	revise_model() #revising freq_dict to indicated conditional probabilities of words given topic
+	#revise_model() #revising freq_dict to indicated conditional probabilities of words given topic
 	findTopTen() #find top ten words under each topic
 	pickle.dump(freq_dict, open(str(model_file), "wb" ) ) #saving calculated model in the file as indicated in command arguments	
 
