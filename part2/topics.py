@@ -3,6 +3,7 @@ from os import listdir
 from os.path import isfile, join, walk
 import numpy as np
 import math
+from copy import deepcopy
 
 freq_dict={} #Contains entries in the format : {<topic>:{<word1>:<conditional probability>, <word2>:<conditional probability>}} 
 topic_documents = {} #Maintains the total number of files in corresponding topics in the format: {<topio>:<file_count>}
@@ -13,8 +14,10 @@ Topics = {}
 global em_flag 
 # helps write all sums - word frequencies corresponding to each word under a title in freq_dict
 def make_model(directory, fraction):
+	global topic_documents
 	em_flag = False
 	dir_list =  listdir(directory)#list of directories/topics
+	topic = None
 	for d in dir_list:
         	if not d.startswith('.'):
                 	freq_dict.update({d:{}})#initializing keys with empty values in the dictionary
@@ -25,16 +28,21 @@ def make_model(directory, fraction):
 			for name in files:
 				r = float(random.random())
 				if r < fraction or r == fraction:
+					topic = d
 					print d,name
 					calculate_from_file(d,path+"/"+name)#calculate frequency of words in the file 
 				else:
 					em_flag = True
 					random_topic = np.random.choice(dir_list)
+					topic = random_topic
 					while(random_topic.startswith('.')):
 						random_topic = np.random.choice(dir_list)
 					calculate_from_file(random_topic, path+"/"+name)
-			topic_documents.update({d : len(files)}) #Updating topic_documents dictionary to indicate number of files under a particular topic
-	revise_model()	
+				if topic in topic_documents: #Updating topic_documents dictionary to indicate number of files under a particular topic
+					topic_documents[topic] += 1
+				else:
+					topic_documents[topic] = 1
+	revise_model()
 	if em_flag == True:
 		run_em(directory, fraction)
 		
@@ -42,38 +50,66 @@ def make_model(directory, fraction):
 
 # Runs the EM algorithm on randomly labelled data
 def run_em(directory, fraction):
-	for i in range(1):
+	for i in range(2):
+		print "Iteration: ",
+		print i
 		calculate_posteriors(directory)
+		revise_model()
 	
 #Calculates Topic posteriors and assigns values to topics based on obtained posteriors
 def calculate_posteriors(directory):
-	dir_list = listdir(directory)
+	global freq_dict
+	topic_documents = {}
+	new_freq_dict = {}
+	dir_list =  listdir(directory)
 	for d in dir_list:
-      		path = directory+"/"+d
-        	topic_posteriors = {} #holds log of topic posteriors for each topic
-                for root,dirs,files in os.walk(path):
-                	for name in files:
-                                #print d,name
-                                for topic in freq_dict:
-                                        f = open(path+"/"+name, 'r')
-                                        temp = 0.0 #intermediate likelihoods
-                                        for line in f:
-                                                cleanLine = re.sub('\W+',' ', line ) #cleaning line to exclude special chars
-                                                wordlist = cleanLine.split() #getting proper words from the line
-                                                for p in wordlist:
-                                                        if p in freq_dict[topic]:
-                                                                temp += math.log(freq_dict[topic][p])
-                                                        else:
-                                                                temp += math.log(0.0001)
-                                        topic_posteriors.update({topic : temp})
-  				topic_predicted = max(topic_posteriors, key=topic_posteriors.get)
-                                print "Topic predicted - ", topic_predicted, ", original was - ", d
-				if str(topic_predicted) != str(d):
-					if str(d) in freq_dict.keys():
-						val = freq_dict[str(d)] #updating values in model dictionary against the predicted label/topic 
-						del freq_dict[str(d)]
-						freq_dict.update({str(topic_predicted):val})
+		path = directory+"/"+d
+		for root,dirs,files in os.walk(path):
+			topic_posterior = {}
+			for name in files:
+				for topic in freq_dict:
+					f = open(path+"/"+name, 'r')	
+					topic_posterior.update({topic : posterior_for_topic(f,topic,freq_dict)})
+				topic_predicted = max(topic_posterior, key=topic_posterior.get)
+				add_words_to_dict(new_freq_dict, topic_predicted, get_all_words_in_file(f))
+				if topic_predicted in topic_documents:
+					topic_documents[topic_predicted] += 1
+				else:
+					topic_documents[topic_predicted] = 1
+	freq_dict = deepcopy(new_freq_dict)
 	return
+
+def add_words_to_dict(new_freq_dict, topic_predicted, words):
+	for w in words:
+		if topic_predicted in new_freq_dict:
+			if w in new_freq_dict[topic_predicted]:
+				new_freq_dict[topic_predicted][w] += 1
+			else:
+				new_freq_dict[topic_predicted][w] = 1
+		else:
+			new_freq_dict.update({topic_predicted : {}})
+			new_freq_dict[topic_predicted][w] = 1
+	return
+def posterior_for_topic(f,topic, freq_dict):
+	value = 0.0
+	for line in f:
+		cleanLine = re.sub('\W+',' ', line ) #cleaning line to exclude special chars 
+		wordlist = cleanLine.split() #getting proper words from the line
+		for p in wordlist:
+			if p in freq_dict[topic]:
+				value += math.log(freq_dict[topic][p])
+			else:
+				value += math.log(0.0000001)
+	return value
+
+def get_all_words_in_file(f):
+	words = []
+	f.seek(0)
+	for line in f:
+		cleanLine = re.sub('\W+',' ', line ) #cleaning line to exclude special chars 
+		wordlist = cleanLine.split() #getting proper words from the line
+		words += wordlist
+	return list(set(words))
 
 #opens a file and reads it line by line, calculating and recording/updating word frequencies as it goes
 def calculate_from_file(d, filepath):
@@ -101,7 +137,7 @@ def revise_model():
 	return
 
 #predicts the topic based on MLE							
-def predict_topic(directory, loaded_model):
+def predict_topic(directory, freq_dict):
  	dir_list =  listdir(directory)
 	count = 0 #just a counter to help in identifying indexes corresponding to topics in the confusion matrix
 	w = 20 #length and width of the confusion matrix - given assumption in problem statement - total number of topics is 20 
@@ -117,26 +153,13 @@ def predict_topic(directory, loaded_model):
 	
 	for d in dir_list:
 		path = directory+"/"+d
-		topic_posterior = {} #holds log of topic posteriors for each topic
 		for root,dirs,files in os.walk(path):
+			topic_posterior = {} #holds log of topic posteriors for each topic
 			for name in files:
 				print d,name
-				for topic in loaded_model:
+				for topic in freq_dict:
 					f = open(path+"/"+name, 'r')
-					temp = 0.0 #intermediate likelihoods
-					for line in f:	
-						cleanLine = re.sub('\W+',' ', line ) #cleaning line to exclude special chars 
-						wordlist = cleanLine.split() #getting proper words from the line
-						for p in wordlist:
-							if p in loaded_model[topic]:
-								temp += math.log(loaded_model[topic][p])
-							else:
-								temp += math.log(0.0001)
-					topic_posterior.update({topic : temp})
-				# temp = sum(topic_posterior.values())
-				# for key, value in topic_posterior.items():
-				# 	topic_posterior[key] = float(value) / temp
-				# topic_predicted = np.random.choice(topic_posterior.keys(), p = topic_posterior.values())
+					topic_posterior.update({topic : posterior_for_topic(f, topic, freq_dict)})
 				topic_predicted = max(topic_posterior, key=topic_posterior.get)
 				print "Topic predicted - ", topic_predicted
 				if topic_predicted == d:
@@ -181,11 +204,10 @@ else:
 
 if mode == "train":
 	make_model(directory, fraction) #call to make frequency dictionary - freq_dict
-	#revise_model() #revising freq_dict to indicated conditional probabilities of words given topic
 	findTopTen() #find top ten words under each topic
 	pickle.dump(freq_dict, open(str(model_file), "wb" ) ) #saving calculated model in the file as indicated in command arguments	
 
 if mode == "test":
-	loaded_model = pickle.load( open(str(model_file), "rb" ) ) #load saved model
-	predict_topic(directory,loaded_model) #predict topic for each file, print them, print accuracy and print confusion matrix
+	freq_dict = pickle.load( open(str(model_file), "rb" ) ) #load saved model
+	predict_topic(directory,freq_dict) #predict topic for each file, print them, print accuracy and print confusion matrix
 		
